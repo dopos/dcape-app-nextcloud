@@ -1,0 +1,29 @@
+version: "3.2"
+services:
+
+  app:
+    image: ${IMAGE}:${IMAGE_VER}
+    restart: always
+    networks:
+      - lan
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.entryPoints=${ENTRY_DEFAULT}"
+      - "traefik.frontend.redirect.entryPoints=${REDIRECT_ENTRYPOINTS}"
+      - "traefik.frontend.rule=Host:${APP_SITE}"
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ../../data/nextcloud:/var/www/html
+    environment:
+      - POSTGRES_DB=${DB_USER}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_HOST=db
+      - NEXTCLOUD_ADMIN_USER=${USER_NAME}
+      - NEXTCLOUD_ADMIN_PASSWORD=${USER_PASS}
+
+networks:
+  lan:
+    external:
+      name: ${DCAPE_NET}
