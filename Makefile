@@ -21,7 +21,7 @@ USER_PASS          ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 2>/dev/null | head
 # Docker image name
 IMAGE              ?= nextcloud
 # Docker image tag
-IMAGE_VER         ?= 17.0.1RC1-apache
+IMAGE_VER         ?= 18.0
 
 # Docker-compose project name (container name prefix)
 PROJECT_NAME       ?= $(shell basename $$PWD)

@@ -20,6 +20,7 @@ services:
       - POSTGRES_HOST=db
       - NEXTCLOUD_ADMIN_USER=${USER_NAME}
       - NEXTCLOUD_ADMIN_PASSWORD=${USER_PASS}
+      - NEXTCLOUD_TRUSTED_DOMAINS=${APP_SITE}
 
 networks:
   lan:
