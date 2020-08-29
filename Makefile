@@ -4,7 +4,7 @@ SHELL               = /bin/bash
 CFG                ?= .env
 
 # Database name
-DB_NAME            ?= nextcloud
+DB_NAME            ?= mysite_nextcoud
 # Database user name
 DB_USER            ?= $(DB_NAME)
 # Database user password
@@ -13,15 +13,20 @@ DB_PASS            ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 | head -c14; echo)
 DB_SOURCE          ?=
 
 # Site host
-APP_SITE           ?= share.dev.lan
+APP_SITE             ?= cloud.lan
+ONLYOFFICE_APP_SITE  ?= office.lan
 
 USER_NAME          ?= nc
 USER_PASS          ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 2>/dev/null | head -c8; echo)
 
 # Docker image name
-IMAGE              ?= nextcloud
+NEXTCLOUD_IMAGE       ?= nextcloud
 # Docker image tag
-IMAGE_VER         ?= 18.0
+NEXTCLOUD_IMAGE_VER   ?= 19.0.2
+REDIS_IMAGE           ?= redis
+REDIS_IMAGE_VER       ?= 6.0.5-alpine
+ONLYOFFICE_IMAGE      ?= onlyoffice/documentserver
+ONLYOFFICE_IMAGE_VER  ?= 5.6.3.2
 
 # Docker-compose project name (container name prefix)
 PROJECT_NAME       ?= $(shell basename $$PWD)
@@ -41,6 +46,7 @@ define CONFIG_DEF
 
 # Site host
 APP_SITE=$(APP_SITE)
+ONLYOFFICE_APP_SITE=$(ONLYOFFICE_APP_SITE)
 
 # Admin user name
 USER_NAME=$(USER_NAME)
@@ -59,9 +65,13 @@ DB_SOURCE=$(DB_SOURCE)
 # Docker details
 
 # Docker image name
-IMAGE=$(IMAGE)
+NEXTCLOUD_IMAGE=$(NEXTCLOUD_IMAGE)
 # Docker image tag
-IMAGE_VER=$(IMAGE_VER)
+NEXTCLOUD_IMAGE_VER=$(NEXTCLOUD_IMAGE_VER)
+REDIS_IMAGE=$(REDIS_IMAGE)
+REDIS_IMAGE_VER=$(REDIS_IMAGE_VER)
+ONLYOFFICE_IMAGE=$(ONLYOFFICE_IMAGE)
+ONLYOFFICE_IMAGE_VER=$(ONLYOFFICE_IMAGE_VER)
 
 # Used by docker-compose
 # Docker-compose project name (container name prefix)
