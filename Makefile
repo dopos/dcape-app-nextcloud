@@ -4,7 +4,7 @@ SHELL               = /bin/bash
 CFG                ?= .env
 
 # Database name
-DB_NAME            ?= mysite_nextcoud
+DB_NAME            ?= mysite_nextcloud
 # Database user name
 DB_USER            ?= $(DB_NAME)
 # Database user password
