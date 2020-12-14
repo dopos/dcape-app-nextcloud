@@ -4,8 +4,10 @@ CFG                ?= .env
 # docker image version from dcape
 IMAGE_VER          ?= 20.0.3-apache
 REDIS_IMAGE_VER    ?= 6.0.9-alpine
+NGINX_IMAGE_VER    ?= 1.19.4-alpine
 # Config vars are described below in section `define CONFIG_...`
 APP_SITE           ?= cloud.dev.lan
+USE_TLS            ?= false
 USER_NAME          ?= nc
 USER_PASS          ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 2>/dev/null | head -c8; echo)
 PGDATABASE         ?= nextcloud
@@ -14,6 +16,7 @@ PGPASSWORD         ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 | head -c14; echo)
 PG_DUMP_SOURCE     ?=
 IMAGE              ?= nextcloud
 REDIS_IMAGE        ?= redis
+NGINX_IMAGE        ?= nginx
 PROJECT_NAME       ?= $(shell basename $$PWD)
 DCAPE_TAG          ?= dcape
 DCAPE_NET          ?= $(DCAPE_TAG)
@@ -27,6 +30,9 @@ define CONFIG_DEF
 
 # Site host
 APP_SITE=$(APP_SITE)
+
+# Use TLS (true|false)
+USE_TLS=$(USE_TLS)
 
 # Admin user name
 USER_NAME=$(USER_NAME)
@@ -65,13 +71,17 @@ PG_CONTAINER=$(PG_CONTAINER)
 
 # Nextcloud image name
 IMAGE=$(IMAGE)
-# Nextcloud image tag
-IMAGE_VER=$(IMAGE_VER)
-
 # Redis image name
 REDIS_IMAGE=$(REDIS_IMAGE)
+# Nginx image name
+NGINX_IMAGE=$(NGINX_IMAGE)
+
+# Nextcloud image tag
+IMAGE_VER=$(IMAGE_VER)
 # Redis image tag
 REDIS_IMAGE_VER=$(REDIS_IMAGE_VER)
+# Nginx image tag
+NGINX_IMAGE_VER=$(NGINX_IMAGE_VER)
 
 endef
 export CONFIG_DEF
@@ -149,7 +159,7 @@ db-create: docker-wait
 	docker exec -i $$PG_CONTAINER psql -U postgres -c "$$sql" 2>&1 > .psql.log | grep -v "already exists" > /dev/null || true ; \
 	cat .psql.log ; \
 	docker exec -i $$PG_CONTAINER psql -U postgres -c "CREATE DATABASE \"$$PGDATABASE\" OWNER \"$$PGUSER\";" 2>&1 > .psql.log | grep  "already exists" > /dev/null || db_exists=1 ; \
-	cat .psql.log ; \
+	cat .psql.log ; rm .psql.log ; \
 	if [ "$$db_exists" = "1" ] ; then \
 	  echo "*** db data load" ; \
 	  if [ "$$PG_DUMP_SOURCE" ] ; then \

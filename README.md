@@ -16,6 +16,7 @@ nextcloud.com application package for dcape
 ## Docker image used
 
 * [nextcloud](https://hub.docker.com/_/nextcloud)
+* [redis](https://hub.docker.com/_/redis)
 
 ## Requirements
 
@@ -25,6 +26,18 @@ nextcloud.com application package for dcape
 * Git service ([github](https://github.com), [gitea](https://gitea.io) or [gogs](https://gogs.io))
 
 ## Usage
+
+### Redis
+```
+sysctl vm.overcommit_memory=1
+```
+
+### __Host cookie:
+
+config/config.php:
+```
+'overwriteprotocol' => 'https',
+```
 
 * Fork this repo in your Git service
 * Setup deploy hook

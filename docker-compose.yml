@@ -1,26 +1,40 @@
 version: "3.2"
 services:
 
-  nextcloud:
+  cloud-front:
+    image: ${NGINX_IMAGE}:${NGINX_IMAGE_VER}
+    networks:
+      - lan
+    depends_on:
+      - cloud-app
+    restart: always
+    labels:
+      - traefik.enable=true
+      - dcape.traefik.tag=${DCAPE_TAG}
+      - traefik.http.routers.cloud-front.rule=Host(`${APP_SITE:?Must be set}`)
+      - traefik.http.routers.cloud-front.tls=${USE_TLS}
+      - traefik.http.routers.cloud-front.tls.certresolver=letsEncrypt
+      - traefik.http.middlewares.hsts.headers.customresponseheaders.Strict-Transport-Security="max-age=15552000; includeSubDomains"
+      - traefik.http.middlewares.cloud_redirect.redirectregex.regex=/.well-known/(card|cal)dav
+      - traefik.http.middlewares.cloud_redirect.redirectregex.replacement=/remote.php/dav/
+      - traefik.http.routers.cloud-front.middlewares=hsts,cloud_redirect
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ${APP_ROOT}/data:/var/www/html:ro
+      - ${APP_ROOT}/nginx.conf:/etc/nginx/nginx.conf:ro
+
+  cloud-app:
     image: ${IMAGE}:${IMAGE_VER}
     restart: always
     networks:
       - lan
-    hostname: ${APP_SITE}
-    labels:
-      - "traefik.enable=true"
-      - "dcape.traefik.tag=${DCAPE_TAG}"
-      - "traefik.http.routers.nextcloud.rule=Host(`${APP_SITE:?Must be set}`)"
-#      - "traefik.http.routers.nextcloud.tls=true"
-#      - "traefik.http.routers.nextcloud.tls.certresolver=letsEncrypt"
-#      - "traefik.frontend.headers.STSSeconds=15552000"
-#      - "traefik.frontend.headers.STSIncludeSubdomains=true"
-#      - "traefik.frontend.headers.STSPreload=true"
+    depends_on:
+      - cloud-cache
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       - ${APP_ROOT}/data:/var/www/html
-#      - ${APP_ROOT}/etc/apache2:/etc/apache2
     environment:
       - POSTGRES_DB=${PGDATABASE}
       - POSTGRES_USER=${PGUSER}
@@ -29,11 +43,13 @@ services:
       - NEXTCLOUD_ADMIN_USER=${USER_NAME}
       - NEXTCLOUD_ADMIN_PASSWORD=${USER_PASS}
       - NEXTCLOUD_TRUSTED_DOMAINS=${APP_SITE}
-      - REDIS_HOST=redis
+      - REDIS_HOST=cloud-cache
 
-  redis:
+  cloud-cache:
     image: ${REDIS_IMAGE}:${REDIS_IMAGE_VER}
     restart: always
+#    sysctls:
+#      net.core.somaxconn: 511
     networks:
       - lan
     volumes:
