@@ -12,6 +12,7 @@ steps:
   - . setup config
   - . setup root
   - cp -pr nginx.conf $APP_ROOT/
+  - make db-create
   - docker-compose up -d --force-recreate
   volumes:
   - name: dockersock
