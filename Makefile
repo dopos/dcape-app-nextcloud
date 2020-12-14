@@ -1,43 +1,29 @@
 # dcape-app-nextcloud Makefile
-
-SHELL               = /bin/bash
+SHELL               = /bin/sh
 CFG                ?= .env
-
-# Database name
-DB_NAME            ?= nextcloud
-# Database user name
-DB_USER            ?= $(DB_NAME)
-# Database user password
-DB_PASS            ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 | head -c14; echo)
-# Database dump for import on create
-DB_SOURCE          ?=
-
-# Site host
-APP_SITE           ?= share.dev.lan
-
+# docker image version from dcape
+IMAGE_VER          ?= 20.0.3-apache
+REDIS_IMAGE_VER    ?= 6.0.9-alpine
+# Config vars are described below in section `define CONFIG_...`
+APP_SITE           ?= cloud.dev.lan
 USER_NAME          ?= nc
 USER_PASS          ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 2>/dev/null | head -c8; echo)
-
-# Docker image name
+PGDATABASE         ?= nextcloud
+PGUSER             ?= $(PGDATABASE)
+PGPASSWORD         ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 | head -c14; echo)
+PG_DUMP_SOURCE     ?=
 IMAGE              ?= nextcloud
-# Docker image tag
-IMAGE_VER         ?= 18.0
-
-# Docker-compose project name (container name prefix)
+REDIS_IMAGE        ?= redis
 PROJECT_NAME       ?= $(shell basename $$PWD)
-# dcape container name prefix
-DCAPE_PROJECT_NAME ?= dcape
-# dcape network attach to
-DCAPE_NET          ?= $(DCAPE_PROJECT_NAME)_default
-# dcape postgresql container name
-DCAPE_DB           ?= $(DCAPE_PROJECT_NAME)_db_1
-
-# Docker-compose image tag
-DC_VER             ?= 1.23.2
+DCAPE_TAG          ?= dcape
+DCAPE_NET          ?= $(DCAPE_TAG)
+PG_CONTAINER       ?= $(DCAPE_TAG)_db_1
+APP_ROOT           ?= $(PWD)
+DC_VER             ?= latest
 
 define CONFIG_DEF
 # ------------------------------------------------------------------------------
-# Mattermost settings
+# Nextcloud: general config
 
 # Site host
 APP_SITE=$(APP_SITE)
@@ -47,34 +33,53 @@ USER_NAME=$(USER_NAME)
 # Admin user password
 USER_PASS=$(USER_PASS)
 
+# ------------------------------------------------------------------------------
+# Nextcloud: internal config
+
+# Host dir for app data
+APP_ROOT=$(APP_ROOT)
+
 # Database name
-DB_NAME=$(DB_NAME)
+PGDATABASE=$(PGDATABASE)
 # Database user name
-DB_USER=$(DB_USER)
+PGUSER=$(PGUSER)
 # Database user password
-DB_PASS=$(DB_PASS)
+PGPASSWORD=$(PGPASSWORD)
 # Database dump for import on create
-DB_SOURCE=$(DB_SOURCE)
+PG_DUMP_SOURCE=$(PG_DUMP_SOURCE)
 
 # Docker details
-
-# Docker image name
-IMAGE=$(IMAGE)
-# Docker image tag
-IMAGE_VER=$(IMAGE_VER)
 
 # Used by docker-compose
 # Docker-compose project name (container name prefix)
 PROJECT_NAME=$(PROJECT_NAME)
+
+# dcape container name prefix
+DCAPE_TAG=$(DCAPE_TAG)
+
 # dcape network attach to
 DCAPE_NET=$(DCAPE_NET)
+
 # dcape postgresql container name
-DCAPE_DB=$(DCAPE_DB)
+PG_CONTAINER=$(PG_CONTAINER)
+
+# Nextcloud image name
+IMAGE=$(IMAGE)
+# Nextcloud image tag
+IMAGE_VER=$(IMAGE_VER)
+
+# Redis image name
+REDIS_IMAGE=$(REDIS_IMAGE)
+# Redis image tag
+REDIS_IMAGE_VER=$(REDIS_IMAGE_VER)
 
 endef
 export CONFIG_DEF
 
 -include $(CFG)
+export
+
+-include $(CFG).bak
 export
 
 .PHONY: all $(CFG) start start-hook stop update up reup down docker-wait db-create db-drop psql dc help
@@ -114,7 +119,7 @@ down: dc
 # Wait for postgresql container start
 docker-wait:
 	@echo -n "Checking PG is ready..."
-	@until [[ `docker inspect -f "{{.State.Health.Status}}" $$DCAPE_DB` == healthy ]] ; do sleep 1 ; echo -n "." ; done
+	@until [ `docker inspect -f "{{.State.Health.Status}}" $$PG_CONTAINER` = "healthy" ] ; do sleep 1 ; echo -n "." ; done
 	@echo "Ok"
 
 # ------------------------------------------------------------------------------
@@ -124,7 +129,7 @@ docker-wait:
 # DCAPE_DB_DUMP_DEST must be set in pg container
 
 define IMPORT_SCRIPT
-[[ "$$DCAPE_DB_DUMP_DEST" ]] || { echo "DCAPE_DB_DUMP_DEST not set. Exiting" ; exit 1 ; } ; \
+[ "$$DCAPE_DB_DUMP_DEST" ] || { echo "DCAPE_DB_DUMP_DEST not set. Exiting" ; exit 1 ; } ; \
 DB_NAME="$$1" ; DB_USER="$$2" ; DB_PASS="$$3" ; DB_SOURCE="$$4" ; \
 dbsrc=$$DCAPE_DB_DUMP_DEST/$$DB_SOURCE.tgz ; \
 if [ -f $$dbsrc ] ; then \
@@ -137,15 +142,19 @@ fi
 endef
 export IMPORT_SCRIPT
 
-# create user, db and load dump
+# create user, db and load sql
 db-create: docker-wait
 	@echo "*** $@ ***" ; \
-	docker exec -i $$DCAPE_DB psql -U postgres -c "CREATE USER \"$$DB_USER\" WITH PASSWORD '$$DB_PASS';" || true ; \
-	docker exec -i $$DCAPE_DB psql -U postgres -c "CREATE DATABASE \"$$DB_NAME\" OWNER \"$$DB_USER\";" || db_exists=1 ; \
-	if [[ ! "$$db_exists" ]] ; then \
-	  if [[ "$$DB_SOURCE" ]] ; then \
-	    echo "$$IMPORT_SCRIPT" | docker exec -i $$DCAPE_DB bash -s - $$DB_NAME $$DB_USER $$DB_PASS $$DB_SOURCE \
-	    && docker exec -i $$DCAPE_DB psql -U postgres -c "COMMENT ON DATABASE \"$$DB_NAME\" IS 'SOURCE $$DB_SOURCE';" \
+	sql="CREATE USER \"$$PGUSER\" WITH PASSWORD '$$PGPASSWORD'" ; \
+	docker exec -i $$PG_CONTAINER psql -U postgres -c "$$sql" 2>&1 > .psql.log | grep -v "already exists" > /dev/null || true ; \
+	cat .psql.log ; \
+	docker exec -i $$PG_CONTAINER psql -U postgres -c "CREATE DATABASE \"$$PGDATABASE\" OWNER \"$$PGUSER\";" 2>&1 > .psql.log | grep  "already exists" > /dev/null || db_exists=1 ; \
+	cat .psql.log ; \
+	if [ "$$db_exists" = "1" ] ; then \
+	  echo "*** db data load" ; \
+	  if [ "$$PG_DUMP_SOURCE" ] ; then \
+	    echo "$$IMPORT_SCRIPT" | docker exec -i $$PG_CONTAINER bash -s - $$PGDATABASE $$PGUSER $$PGPASSWORD $$PG_DUMP_SOURCE \
+	    && docker exec -i $$PG_CONTAINER psql -U postgres -c "COMMENT ON DATABASE \"$$PGDATABASE\" IS 'SOURCE $$PG_DUMP_SOURCE';" \
 	    || true ; \
 	  fi \
 	fi
@@ -153,11 +162,11 @@ db-create: docker-wait
 ## drop database and user
 db-drop: docker-wait
 	@echo "*** $@ ***"
-	@docker exec -it $$DCAPE_DB psql -U postgres -c "DROP DATABASE \"$$DB_NAME\";" || true
-	@docker exec -it $$DCAPE_DB psql -U postgres -c "DROP USER \"$$DB_USER\";" || true
+	@docker exec -it $$PG_CONTAINER psql -U postgres -c "DROP DATABASE \"$$PGDATABASE\";" || true
+	@docker exec -it $$PG_CONTAINER psql -U postgres -c "DROP USER \"$$PGUSER\";" || true
 
 psql: docker-wait
-	@docker exec -it $$DCAPE_DB psql -U $$DB_USER -d $$DB_NAME
+	@docker exec -it $$PG_CONTAINER psql -U $$PGUSER $$PGDATABASE
 
 # ------------------------------------------------------------------------------
 
@@ -175,9 +184,10 @@ dc: docker-compose.yml
 
 # ------------------------------------------------------------------------------
 
-$(CFG):
-	@[ -f $@ ] || { echo "$$CONFIG_DEF" > $@ ; echo "Warning: Created default $@" ; }
+$(CFG).sample:
+	@echo "$$CONFIG_DEF" > $@
 
+config: $(CFG).sample
 # ------------------------------------------------------------------------------
 
 ## List Makefile targets

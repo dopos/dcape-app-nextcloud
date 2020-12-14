@@ -1,26 +1,43 @@
 version: "3.2"
 services:
 
-  app:
+  nextcloud:
     image: ${IMAGE}:${IMAGE_VER}
     restart: always
     networks:
       - lan
+    hostname: ${APP_SITE}
     labels:
       - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${APP_SITE}"
+      - "dcape.traefik.tag=${DCAPE_TAG}"
+      - "traefik.http.routers.nextcloud.rule=Host(`${APP_SITE:?Must be set}`)"
+#      - "traefik.http.routers.nextcloud.tls=true"
+#      - "traefik.http.routers.nextcloud.tls.certresolver=letsEncrypt"
+#      - "traefik.frontend.headers.STSSeconds=15552000"
+#      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+#      - "traefik.frontend.headers.STSPreload=true"
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-      - ../../data/nextcloud:/var/www/html
+      - ${APP_ROOT}/data:/var/www/html
+#      - ${APP_ROOT}/etc/apache2:/etc/apache2
     environment:
-      - POSTGRES_DB=${DB_USER}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_DB=${PGDATABASE}
+      - POSTGRES_USER=${PGUSER}
+      - POSTGRES_PASSWORD=${PGPASSWORD}
       - POSTGRES_HOST=db
       - NEXTCLOUD_ADMIN_USER=${USER_NAME}
       - NEXTCLOUD_ADMIN_PASSWORD=${USER_PASS}
       - NEXTCLOUD_TRUSTED_DOMAINS=${APP_SITE}
+      - REDIS_HOST=redis
+
+  redis:
+    image: ${REDIS_IMAGE}:${REDIS_IMAGE_VER}
+    restart: always
+    networks:
+      - lan
+    volumes:
+      - ${APP_ROOT}/redis:/var/lib/redis
 
 networks:
   lan:
