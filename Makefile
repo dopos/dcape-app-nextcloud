@@ -2,7 +2,7 @@
 SHELL               = /bin/sh
 CFG                ?= .env
 # docker image version from dcape
-IMAGE_VER          ?= 20.0.3-apache
+IMAGE_VER          ?= 20.0.3-fpm-alpine
 REDIS_IMAGE_VER    ?= 6.0.9-alpine
 NGINX_IMAGE_VER    ?= 1.19.4-alpine
 # Config vars are described below in section `define CONFIG_...`
