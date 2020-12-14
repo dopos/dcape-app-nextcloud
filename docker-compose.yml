@@ -44,10 +44,12 @@ services:
       - NEXTCLOUD_ADMIN_PASSWORD=${USER_PASS}
       - NEXTCLOUD_TRUSTED_DOMAINS=${APP_SITE}
       - REDIS_HOST=cloud-cache
+      - REDIS_HOST_PASSWORD=${REDIS_PASS}
 
   cloud-cache:
     image: ${REDIS_IMAGE}:${REDIS_IMAGE_VER}
     restart: always
+    command: redis-server --requirepass ${REDIS_PASS}
 #    sysctls:
 #      net.core.somaxconn: 511
     networks:

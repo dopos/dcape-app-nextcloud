@@ -22,6 +22,7 @@ DCAPE_TAG          ?= dcape
 DCAPE_NET          ?= $(DCAPE_TAG)
 PG_CONTAINER       ?= $(DCAPE_TAG)_db_1
 APP_ROOT           ?= $(PWD)
+REDIS_PASS         ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 2>/dev/null | head -c8; echo)
 DC_VER             ?= latest
 
 define CONFIG_DEF
@@ -52,6 +53,7 @@ PGUSER=$(PGUSER)
 # Database user password
 PGPASSWORD=$(PGPASSWORD)
 # Database dump for import on create
+# Used as ${PG_DUMP_SOURCE}.{tar|tgz}
 PG_DUMP_SOURCE=$(PG_DUMP_SOURCE)
 
 # Docker details
@@ -68,6 +70,9 @@ DCAPE_NET=$(DCAPE_NET)
 
 # dcape postgresql container name
 PG_CONTAINER=$(PG_CONTAINER)
+
+# Redis access password
+REDIS_PASS=$(REDIS_PASS)
 
 # Nextcloud image name
 IMAGE=$(IMAGE)
@@ -137,14 +142,17 @@ docker-wait:
 
 # Database import script
 # DCAPE_DB_DUMP_DEST must be set in pg container
-
+# zcat pipe may cause "terminated by signal 13" error, so .tar is also supported
 define IMPORT_SCRIPT
 [ "$$DCAPE_DB_DUMP_DEST" ] || { echo "DCAPE_DB_DUMP_DEST not set. Exiting" ; exit 1 ; } ; \
 DB_NAME="$$1" ; DB_USER="$$2" ; DB_PASS="$$3" ; DB_SOURCE="$$4" ; \
-dbsrc=$$DCAPE_DB_DUMP_DEST/$$DB_SOURCE.tgz ; \
-if [ -f $$dbsrc ] ; then \
-  echo "Dump file $$dbsrc found, restoring database..." ; \
-  zcat $$dbsrc | PGPASSWORD=$$DB_PASS pg_restore -h localhost -U $$DB_USER -O -Ft -d $$DB_NAME || exit 1 ; \
+dbsrc=$$DCAPE_DB_DUMP_DEST/$$DB_SOURCE ; \
+if [ -f $${dbsrc}.tgz ] ; then \
+  echo "Dump file $${dbsrc}.tgz found, restoring database..." ; \
+  zcat $${dbsrc}.tgz | PGPASSWORD=$$DB_PASS pg_restore -h localhost -U $$DB_USER -O -Ft -d $$DB_NAME || exit 1 ; \
+elif [ -f $${dbsrc}.tar ] ; then \
+  echo "Dump file $${dbsrc}.tar found, restoring database..." ; \
+  PGPASSWORD=$$DB_PASS pg_restore -h localhost -U $$DB_USER -O -d $$DB_NAME $${dbsrc}.tar || exit 1 ; \
 else \
   echo "Dump file $$dbsrc not found" ; \
   exit 2 ; \
@@ -161,8 +169,8 @@ db-create: docker-wait
 	docker exec -i $$PG_CONTAINER psql -U postgres -c "CREATE DATABASE \"$$PGDATABASE\" OWNER \"$$PGUSER\";" 2>&1 > .psql.log | grep  "already exists" > /dev/null || db_exists=1 ; \
 	cat .psql.log ; rm .psql.log ; \
 	if [ "$$db_exists" = "1" ] ; then \
-	  echo "*** db data load" ; \
 	  if [ "$$PG_DUMP_SOURCE" ] ; then \
+	    echo "*** db data load" ; \
 	    echo "$$IMPORT_SCRIPT" | docker exec -i $$PG_CONTAINER bash -s - $$PGDATABASE $$PGUSER $$PGPASSWORD $$PG_DUMP_SOURCE \
 	    && docker exec -i $$PG_CONTAINER psql -U postgres -c "COMMENT ON DATABASE \"$$PGDATABASE\" IS 'SOURCE $$PG_DUMP_SOURCE';" \
 	    || true ; \
