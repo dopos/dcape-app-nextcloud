@@ -11,12 +11,13 @@ nextcloud.com application package for dcape
 [4]: https://img.shields.io/github/license/dopos/dcape-app-nextcloud.svg
 [5]: LICENSE
 
-[nextcloud](https://www.nextcloud.com/) application package for [dcape](https://github.com/dopos/dcape).
+[nextcloud](https://www.nextcloud.com/) application package for [dcape](https://github.com/dopos/dcape) v2.
 
 ## Docker image used
 
 * [nextcloud](https://hub.docker.com/_/nextcloud)
 * [redis](https://hub.docker.com/_/redis)
+* [nginx](https://hub.docker.com/_/nginx)
 
 ## Requirements
 
@@ -25,14 +26,26 @@ nextcloud.com application package for dcape
 * [dcape](https://github.com/dopos/dcape)
 * Git service ([github](https://github.com), [gitea](https://gitea.io) or [gogs](https://gogs.io))
 
-## Usage
+## Install
 
+### By mouse (deploy with drone)
 
 * Gitea: Fork or mirror this repo in your Git service
 * Drone: Activate repo
 * Gitea: Run "Test delivery", config sample will be saved to enfist
 * Enfist: Edit config and remove .sample from name
 * Run "Test delivery" again (app will be installed and started on webhook host)
+
+### By hands
+
+```bash
+git clone -b v2 --single-branch --depth 1 https://github.com/dopos/dcape-app-nextcloud.git
+cd dcape-app-nextcloud
+make config
+... <edit .env.sample>
+mv .env.sample .env
+make up
+```
 
 ### Redis
 ```
@@ -46,7 +59,17 @@ config/config.php:
 'overwriteprotocol' => 'https',
 ```
 
-## Upgrade
+## Upgrade dcape app
+
+```bash
+git pull
+make config
+... <check .env.sample>
+mv .env.sample .env
+make up
+```
+
+## Upgrade nextcloud
 
 #### v17 -> v18
 
