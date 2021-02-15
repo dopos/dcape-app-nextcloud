@@ -2,7 +2,7 @@
 SHELL               = /bin/sh
 CFG                ?= .env
 # docker image version from dcape
-IMAGE_VER          ?= 20.0.3-fpm-alpine
+IMAGE_VER          ?= 20.0.4-fpm-alpine
 REDIS_IMAGE_VER    ?= 6.0.9-alpine
 NGINX_IMAGE_VER    ?= 1.19.4-alpine
 # Config vars are described below in section `define CONFIG_...`
@@ -166,9 +166,9 @@ db-create: docker-wait
 	sql="CREATE USER \"$$PGUSER\" WITH PASSWORD '$$PGPASSWORD'" ; \
 	docker exec -i $$PG_CONTAINER psql -U postgres -c "$$sql" 2>&1 > .psql.log | grep -v "already exists" > /dev/null || true ; \
 	cat .psql.log ; \
-	docker exec -i $$PG_CONTAINER psql -U postgres -c "CREATE DATABASE \"$$PGDATABASE\" OWNER \"$$PGUSER\";" 2>&1 > .psql.log | grep  "already exists" > /dev/null || db_exists=1 ; \
+	docker exec -i $$PG_CONTAINER psql -U postgres -c "CREATE DATABASE \"$$PGDATABASE\" OWNER \"$$PGUSER\";" 2>&1 > .psql.log | grep  "already exists" > /dev/null || db_created=1 ; \
 	cat .psql.log ; rm .psql.log ; \
-	if [ "$$db_exists" = "1" ] ; then \
+	if [ "$$db_created" = "1" ] ; then \
 	  if [ "$$PG_DUMP_SOURCE" ] ; then \
 	    echo "*** db data load" ; \
 	    echo "$$IMPORT_SCRIPT" | docker exec -i $$PG_CONTAINER bash -s - $$PGDATABASE $$PGUSER $$PGPASSWORD $$PG_DUMP_SOURCE \
