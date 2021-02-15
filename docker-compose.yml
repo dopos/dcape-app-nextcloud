@@ -50,8 +50,8 @@ services:
     image: ${REDIS_IMAGE}:${REDIS_IMAGE_VER}
     restart: always
     command: redis-server --requirepass ${REDIS_PASS}
-#    sysctls:
-#      net.core.somaxconn: 511
+    sysctls:
+      net.core.somaxconn: 511
     networks:
       - lan
     volumes:
