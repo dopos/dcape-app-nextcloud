@@ -14,9 +14,9 @@ services:
       - traefik.http.routers.cloud-front.rule=Host(`${APP_SITE:?Must be set}`)
       - traefik.http.routers.cloud-front.tls=${USE_TLS}
       - traefik.http.routers.cloud-front.tls.certresolver=letsEncrypt
-      - traefik.http.middlewares.hsts.headers.customresponseheaders.Strict-Transport-Security="max-age=15552000; includeSubDomains"
       - traefik.http.middlewares.cloud_redirect.redirectregex.regex=/.well-known/(card|cal)dav
       - traefik.http.middlewares.cloud_redirect.redirectregex.replacement=/remote.php/dav/
+      # hsts middleware defined in DCAPE/apps/traefik/docker-compose.inc.yml
       - traefik.http.routers.cloud-front.middlewares=hsts,cloud_redirect
     volumes:
       - /etc/timezone:/etc/timezone:ro
