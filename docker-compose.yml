@@ -1,57 +1,109 @@
 version: "3.2"
 services:
 
-  nextcloud:
-    image: ${NEXTCLOUD_IMAGE}:${NEXTCLOUD_IMAGE_VER}
-    restart: always
-    networks:
-      - dcape
-    links:
-      - redis
+  front:
+    image: ${NGINX_IMAGE}:${NGINX_IMAGE_VER}
     depends_on:
-      - redis
+      - app
+    restart: always
     labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${APP_SITE}"
-      - "traefik.frontend.entryPoints=http,https"
-      - "traefik.frontend.redirect.entryPoint=https"
-      - "traefik.frontend.headers.STSSeconds=15552000"
-      - "traefik.frontend.headers.STSIncludeSubdomains=true"
-      - "traefik.frontend.headers.STSPreload=true"
+      - traefik.enable=true
+      - dcape.traefik.tag=${DCAPE_TAG}
+      - traefik.http.routers.${APP_TAG}-front.rule=Host(`${APP_SITE:?Must be set}`)
+      - traefik.http.routers.${APP_TAG}-front.tls=${USE_TLS}
+      - traefik.http.routers.${APP_TAG}-front.tls.certresolver=letsEncrypt
+      - traefik.http.middlewares.${APP_TAG}_redirect.redirectregex.regex=/.well-known/(card|cal)dav
+      - traefik.http.middlewares.${APP_TAG}_redirect.redirectregex.replacement=/remote.php/dav/
+      # hsts middleware defined in DCAPE/apps/traefik/docker-compose.inc.yml
+      - traefik.http.routers.cloud-front.middlewares=hsts,${APP_TAG}_redirect
     volumes:
+      - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-      - ../../data/${APP_SITE}/var/www/html:/var/www/html
-      - ../../data/${APP_SITE}/etc/apache2:/etc/apache2
+      - ${APP_ROOT}/data:/var/www/html:ro
+      - ${APP_ROOT}/nginx.conf:/etc/nginx/nginx.conf:ro
+
+  app:
+    image: ${IMAGE}:${IMAGE_VER}
+    hostname: ${APP_TAG}-app
+    restart: always
+    depends_on:
+      - cache
+    labels:
+      - traefik.enable=false
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ${APP_ROOT}/data:/var/www/html
     environment:
-      - POSTGRES_DB=${DB_USER}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_DB=${PGDATABASE}
+      - POSTGRES_USER=${PGUSER}
+      - POSTGRES_PASSWORD=${PGPASSWORD}
       - POSTGRES_HOST=db
       - NEXTCLOUD_ADMIN_USER=${USER_NAME}
       - NEXTCLOUD_ADMIN_PASSWORD=${USER_PASS}
       - NEXTCLOUD_TRUSTED_DOMAINS=${APP_SITE}
+      - OVERWRITEPROTOCOL=https
+      - TRUSTED_PROXIES=${DCAPE_SUBNET}
+      - REDIS_HOST=${APP_TAG}-cache
+      - REDIS_HOST_PASSWORD=${REDIS_PASS}
 
-
-  redis:
+  cache:
     image: ${REDIS_IMAGE}:${REDIS_IMAGE_VER}
+    hostname: ${APP_TAG}-cache
     restart: always
-    networks:
-      - dcape
+    command: redis-server --requirepass ${REDIS_PASS}
+    sysctls:
+      net.core.somaxconn: 511
+    labels:
+      - traefik.enable=false
     volumes:
-      - ../../data/${APP_SITE}/var/lib/redis:/var/lib/redis
+      - ${APP_ROOT}/redis:/var/lib/redis
+
+  rabbitmq:
+    image: rabbitmq
+    restart: always
+    expose:
+      - "5672"
+    labels:
+      - traefik.enable=false
+    volumes:
+      - ${APP_ROOT}/rabbitmq:/var/lib/rabbitmq
 
   onlyoffice:
-    image: ${ONLYOFFICE_IMAGE}:${ONLYOFFICE_IMAGE_VER}
+    image: ${OO_IMAGE}:${OO_IMAGE_VER}
     restart: always
-    networks:
-      - dcape
+    depends_on:
+      - rabbitmq
+    stdin_open: true
+    stop_grace_period: 60s
+    environment:
+      - DB_TYPE=postgres
+      - DB_NAME=${OO_PGDATABASE}
+      - DB_USER=${OO_PGUSER}
+      - DB_PWD=${OO_PGPASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - AMQP_TYPE=rabbitmq
+      - AMQP_URI=amqp://guest:guest@rabbitmq
+      - REDIS_SERVER_HOST=${APP_TAG}-cache
+      - JWT_ENABLED=true
+      - JWT_SECRET=${OO_JWT_SECRET}
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ${APP_ROOT}/oo-data:/var/www/onlyoffice/Data
+      - ${APP_ROOT}/oo-logs:/var/log/onlyoffice
     labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${ONLYOFFICE_APP_SITE}"
-      - "traefik.frontend.entryPoints=http,https"
-      - "traefik.frontend.redirect.entryPoint=https"
+      traefik.enable: true
+      dcape.traefik.tag: ${DCAPE_TAG}
+      traefik.http.routers.${APP_TAG}-oo.rule: Host(`${OO_APP_SITE}`)
+      traefik.http.routers.${APP_TAG}-oo.middlewares: hsts, oo-headers
+      traefik.http.routers.${APP_TAG}-oo.tls: ${USE_TLS}
+
+      traefik.http.middlewares.oo-headers.headers.customrequestheaders.X-Forwarded-Proto: https
+      traefik.http.middlewares.oo-headers.headers.accessControlAllowOriginList: '*'
 
 networks:
-  dcape:
-    external:
-      name: ${DCAPE_NET}
+  default:
+    external: true
+    name: ${DCAPE_NET}

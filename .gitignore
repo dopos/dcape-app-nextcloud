@@ -1,2 +1,6 @@
 *.env
-.idea
+data
+redis
+rabbitmq
+oo-data
+oo-logs
