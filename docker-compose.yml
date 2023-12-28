@@ -1,41 +1,31 @@
+# custom app config
+# overrides DCAPE/apps/drone/dcape-app/docker-compose.yml
+
 version: "3.2"
+
 services:
 
-  cloud-front:
-    image: ${NGINX_IMAGE}:${NGINX_IMAGE_VER}
-    networks:
-      - lan
+  app:
     depends_on:
-      - cloud-app
-    restart: always
+      - cloud
     labels:
-      - traefik.enable=true
-      - dcape.traefik.tag=${DCAPE_TAG}
-      - traefik.http.routers.cloud-front.rule=Host(`${APP_SITE:?Must be set}`)
-      - traefik.http.routers.cloud-front.tls=${USE_TLS}
-      - traefik.http.routers.cloud-front.tls.certresolver=letsEncrypt
-      - traefik.http.middlewares.cloud_redirect.redirectregex.regex=/.well-known/(card|cal)dav
-      - traefik.http.middlewares.cloud_redirect.redirectregex.replacement=/remote.php/dav/
-
-      - traefik.http.middlewares.cloud_redirect1.redirectregex.regex=/.well-known/webfinger
-      - traefik.http.middlewares.cloud_redirect1.redirectregex.replacement=/index.php/.well-known/webfinger
-      - traefik.http.middlewares.cloud_redirect2.redirectregex.regex=/.well-known/nodeinfo
-      - traefik.http.middlewares.cloud_redirect2.redirectregex.replacement=/index.php/.well-known/nodeinfo
+      - traefik.http.middlewares.${APP_TAG}-redirect.redirectregex.regex=/.well-known/(card|cal)dav
+      - traefik.http.middlewares.${APP_TAG}-redirect.redirectregex.replacement=/remote.php/dav/
+      - traefik.http.middlewares.${APP_TAG}-redirect1.redirectregex.regex=/.well-known/webfinger
+      - traefik.http.middlewares.${APP_TAG}-redirect1.redirectregex.replacement=/index.php/.well-known/webfinger
+      - traefik.http.middlewares.${APP_TAG}-redirect2.redirectregex.regex=/.well-known/nodeinfo
+      - traefik.http.middlewares.${APP_TAG}-redirect2.redirectregex.replacement=/index.php/.well-known/nodeinfo
        # hsts middleware defined in DCAPE/apps/traefik/docker-compose.inc.yml
-      - traefik.http.routers.cloud-front.middlewares=hsts,cloud_redirect,cloud_redirect1,cloud_redirect2
+      - traefik.http.routers.${APP_TAG}.middlewares=hsts,${APP_TAG}-redirect,${APP_TAG}-redirect1,${APP_TAG}-redirect2
     volumes:
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
       - ${APP_ROOT}/data:/var/www/html:ro
       - ${APP_ROOT}/nginx.conf:/etc/nginx/nginx.conf:ro
 
-  cloud-app:
-    image: ${IMAGE}:${IMAGE_VER}
+  cloud:
+    image: ${CLOUD_IMAGE}:${CLOUD_IMAGE_VER}
     restart: always
-    networks:
-      - lan
     depends_on:
-      - cloud-cache
+      - cache
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
@@ -51,33 +41,26 @@ services:
       - REDIS_HOST=cloud-cache
       - REDIS_HOST_PASSWORD=${REDIS_PASS}
 
-  cloud-cache:
+  cache:
     image: ${REDIS_IMAGE}:${REDIS_IMAGE_VER}
     restart: always
     command: redis-server --requirepass ${REDIS_PASS}
     sysctls:
       net.core.somaxconn: 511
-    networks:
-      - lan
     volumes:
       - ${APP_ROOT}/redis:/var/lib/redis
 
-  cloud-cron:
+  cron:
     image: rcdailey/nextcloud-cronjob
     restart: always
     network_mode: none
     depends_on:
-    - cloud-app
+      - cloud
     volumes:
-    - /var/run/docker.sock:/var/run/docker.sock:ro
-    - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     environment:
-    - NEXTCLOUD_CONTAINER_NAME=cloud-app
-    - NEXTCLOUD_PROJECT_NAME=dcape-app-nextcloud
-    - NEXTCLOUD_EXEC_SHELL=sh
-
-
-networks:
-  lan:
-    external:
-      name: ${DCAPE_NET}
+      - NEXTCLOUD_CONTAINER_NAME=cloud
+      - NEXTCLOUD_PROJECT_NAME=dcape-app-nextcloud
+      - NEXTCLOUD_EXEC_SHELL=sh
