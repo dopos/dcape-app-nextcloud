@@ -38,7 +38,7 @@ services:
       - NEXTCLOUD_ADMIN_USER=${USER_NAME}
       - NEXTCLOUD_ADMIN_PASSWORD=${USER_PASS}
       - NEXTCLOUD_TRUSTED_DOMAINS=${APP_SITE}
-      - REDIS_HOST=cloud-cache
+      - REDIS_HOST=cache
       - REDIS_HOST_PASSWORD=${REDIS_PASS}
 
   cache:
