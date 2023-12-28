@@ -61,5 +61,10 @@ else
   include /opt/dcape/Makefile.app
 endif
 
-idx-up:
-	docker exec -u 82 dcape-app-nextcloud_cloud-1 ./occ db:add-missing-indices
+CLOUD_CONTAINER ?= dcape-app-nextcloud-cloud-1
+
+occ-idx:
+	docker exec -u 82 $(CLOUD_CONTAINER) ./occ db:add-missing-indices
+
+occ-upgrade:
+	docker exec -u 82 $(CLOUD_CONTAINER) ./occ upgrade
