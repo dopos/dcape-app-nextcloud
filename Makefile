@@ -215,3 +215,7 @@ help:
 ##
 ## Press 'q' for exit
 ##
+
+
+idx-up:
+	docker exec -u 82 dcape-app-nextcloud_cloud-app_1 ./occ db:add-missing-indices

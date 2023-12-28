@@ -16,8 +16,13 @@ services:
       - traefik.http.routers.cloud-front.tls.certresolver=letsEncrypt
       - traefik.http.middlewares.cloud_redirect.redirectregex.regex=/.well-known/(card|cal)dav
       - traefik.http.middlewares.cloud_redirect.redirectregex.replacement=/remote.php/dav/
-      # hsts middleware defined in DCAPE/apps/traefik/docker-compose.inc.yml
-      - traefik.http.routers.cloud-front.middlewares=hsts,cloud_redirect
+
+      - traefik.http.middlewares.cloud_redirect1.redirectregex.regex=/.well-known/webfinger
+      - traefik.http.middlewares.cloud_redirect1.redirectregex.replacement=/index.php/.well-known/webfinger
+      - traefik.http.middlewares.cloud_redirect2.redirectregex.regex=/.well-known/nodeinfo
+      - traefik.http.middlewares.cloud_redirect2.redirectregex.replacement=/index.php/.well-known/nodeinfo
+       # hsts middleware defined in DCAPE/apps/traefik/docker-compose.inc.yml
+      - traefik.http.routers.cloud-front.middlewares=hsts,cloud_redirect,cloud_redirect1,cloud_redirect2
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
@@ -56,6 +61,21 @@ services:
       - lan
     volumes:
       - ${APP_ROOT}/redis:/var/lib/redis
+
+  cloud-cron:
+    image: rcdailey/nextcloud-cronjob
+    restart: always
+    network_mode: none
+    depends_on:
+    - cloud-app
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - /etc/localtime:/etc/localtime:ro
+    environment:
+    - NEXTCLOUD_CONTAINER_NAME=cloud-app
+    - NEXTCLOUD_PROJECT_NAME=dcape-app-nextcloud
+    - NEXTCLOUD_EXEC_SHELL=sh
+
 
 networks:
   lan:
