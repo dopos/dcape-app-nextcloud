@@ -1,7 +1,4 @@
 # dcape-app-nextcloud
-nextcloud.com application package for dcape
-
-# dcape-app-nextcloud
 
 [![GitHub Release][1]][2] [![GitHub code size in bytes][3]]() [![GitHub license][4]][5]
 
