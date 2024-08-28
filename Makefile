@@ -7,20 +7,18 @@ CFG_BAK            ?= $(CFG).bak
 APP_NAME           ?= service-nextcloud
 
 # Redefine dcape params without config duplicate
-USE_DB              ?= yes
-ADD_USER            ?= yes
-USE_TLS             = yes
+USE_DB             ?= yes
+ADD_USER           ?= yes
+USE_TLS            = yes
 USER_NAME          ?= nc
 USER_PASS          ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 2>/dev/null | head -c8; echo)
+USER_EMAIL         ?= ${USER_NAME}@${DCAPE_DOMAIN}
 
 #- Docker image name
 IMAGE              ?= nextcloud
 
-#- Docker image tag
-IMAGE_VER          ?= 27-fpm-alpine
-
 #- docker image version from dcape
-IMAGE_VER          ?= 27-fpm-alpine
+IMAGE_VER          ?= 29-fpm-alpine
 
 #- Redis container image version
 REDIS_IMAGE_VER    ?= 7.2-alpine
@@ -50,7 +48,7 @@ REDIS_PASS         ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 2>/dev/null | head
 OO_IMAGE           ?= onlyoffice/documentserver
 
 #- OnlyOffice image version
-OO_IMAGE_VER       ?= 7.3
+OO_IMAGE_VER       ?= 8.1
 
 #- OnlyOffice database
 OO_PGDATABASE      ?= onlyoffice
@@ -62,7 +60,7 @@ OO_PGUSER          ?= onlyoffice
 OO_PGPASSWORD      ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 2>/dev/null | head -c18; echo)
 
 #- OnlyOffice web endpoint
-OO_APP_SITE        ?= oo.$(APP_SITE)
+OO_APP_SITE        ?= oo-$(APP_SITE)
 
 #- OnlyOffice JWT secret
 OO_JWT_SECRET      ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 2>/dev/null | head -c18; echo)
@@ -86,7 +84,20 @@ else
 endif
 
 # ------------------------------------------------------------------------------
+## Prepare before 'make up'
+setup:
+	@mkdir -p ${APP_ROOT}/html ${APP_ROOT}/config ${APP_ROOT}/data ; \
+	chown -R 82:82 ${APP_ROOT}/html ${APP_ROOT}/config ${APP_ROOT}/data ; \
+	$(MAKE) -s db-create db-create-oo
 
-## Set Nextcloud config params template.
-set-nextcloud: CMD=exec -ti -u www-data app ./occ config:system:set default_phone_region --value=\"RU\"
-set-nextcloud: dc
+## Execute OCC command inside app container (php occ $OCC_CMD)
+exec-occ:
+	$(MAKE) -s dc CMD='exec -ti -u www-data app php /var/www/html/occ ${OCC_CMD}'
+
+## Create OnlyOffice database
+db-create-oo: 
+	@$(MAKE) -s db-create PGUSER='${OO_PGUSER}' PGDATABASE='${OO_PGDATABASE}' PGPASSWORD='${OO_PGPASSWORD}'
+
+## Drop OnlyOffice database
+db-drop-oo:
+	@$(MAKE) -s db-drop PGUSER='${OO_PGUSER}' PGDATABASE='${OO_PGDATABASE}'
