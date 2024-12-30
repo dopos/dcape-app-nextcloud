@@ -18,7 +18,7 @@ USER_EMAIL         ?= ${USER_NAME}@${DCAPE_DOMAIN}
 IMAGE              ?= nextcloud
 
 #- docker image version from dcape
-IMAGE_VER          ?= 29-fpm-alpine
+IMAGE_VER          ?= 30-fpm-alpine
 
 #- Redis container image version
 REDIS_IMAGE_VER    ?= 7.2-alpine
@@ -48,7 +48,7 @@ REDIS_PASS         ?= $(shell < /dev/urandom tr -dc A-Za-z0-9 2>/dev/null | head
 OO_IMAGE           ?= onlyoffice/documentserver
 
 #- OnlyOffice image version
-OO_IMAGE_VER       ?= 8.1
+OO_IMAGE_VER       ?= 8.2
 
 #- OnlyOffice database
 OO_PGDATABASE      ?= onlyoffice
@@ -90,9 +90,13 @@ setup:
 	chown -R 82:82 ${APP_ROOT}/html ${APP_ROOT}/config ${APP_ROOT}/data ; \
 	$(MAKE) -s db-create db-create-oo
 
-## Execute OCC command inside app container (php occ $OCC_CMD)
+## Execute OCC command inside nextcloud container (php occ $OCC_CMD)
 exec-occ:
-	$(MAKE) -s dc CMD='exec -ti -u www-data app php /var/www/html/occ ${OCC_CMD}'
+	$(MAKE) -s dc CMD='exec -ti -u www-data nextcloud php /var/www/html/occ ${OCC_CMD}'
+
+## Execute cron command inside nextcloud container (php cron.php)
+exec-cron:
+	$(MAKE) -s dc CMD='exec -ti -u www-data anextcloudpp php cron.php'
 
 ## Create OnlyOffice database
 db-create-oo: 

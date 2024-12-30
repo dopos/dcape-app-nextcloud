@@ -49,9 +49,15 @@ make up
 ## Using for operations/console
 
 For OCC commands inside nextcloud container example:
-```
+```shell
 make exec-occ OCC_CMD='config:system:set default_phone_region --value=RU'
 ```
+
+For run cron jobs inside nextcloud container example:
+```shell
+make exec-cron'
+```
+
 
 ## License
 

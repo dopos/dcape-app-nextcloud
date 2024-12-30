@@ -1,18 +1,13 @@
 services:
 
-  front:
+  app:
     image: ${NGINX_IMAGE}:${NGINX_IMAGE_VER}
     depends_on:
-      - app
+      - nextcloud
     restart: always
     labels:
-      - traefik.enable=true
-      - dcape.traefik.tag=${DCAPE_TAG}
-      - traefik.http.routers.${APP_TAG}-front.rule=Host(`${APP_SITE:?Must be set}`)
-      - traefik.http.routers.${APP_TAG}-front.tls=${USE_TLS}
-      - traefik.http.routers.${APP_TAG}-front.tls.certresolver=letsEncrypt
       # hsts middleware defined in DCAPE/apps/traefik/docker-compose.inc.yml
-      - traefik.http.routers.${APP_TAG}-front.middlewares=hsts
+      - traefik.http.routers.${APP_TAG}.middlewares=hsts
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
@@ -20,9 +15,9 @@ services:
       - ${APP_ROOT}/data:${DATA_DIR}:ro
       - ${APP_ROOT}/etc/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
-  app:
+  nextcloud:
     image: ${IMAGE}:${IMAGE_VER}
-    hostname: ${APP_TAG}-app
+    hostname: ${APP_TAG}-nextcloud
     restart: always
     depends_on:
       - cache
@@ -35,6 +30,7 @@ services:
       - ${APP_ROOT}/data:${DATA_DIR}
       - ${APP_ROOT}/config:/var/www/html/config
       - ${APP_ROOT}/etc/php-fpm.d/zz-docker.conf:/usr/local/etc/php-fpm.d/zz-docker.conf:ro
+      - ${APP_ROOT}/etc/php/opcache-recommended.ini:/usr/local/etc/php/conf.d/opcache-recommended.ini:ro
     environment:
       - POSTGRES_DB=${PGDATABASE}
       - POSTGRES_USER=${PGUSER}
